@@ -219,7 +219,8 @@ struct Board {
     }
 
 
-    int search(int depth) {
+    int search(int depth, int alpha, int beta) {
+
         if (depth == 0) return evaluate();
 
         std::vector<Move> moves = generate_moves();
@@ -231,14 +232,18 @@ struct Board {
         for (auto move : moves) {
             Board next_board = *this;
             next_board.make_move(move);
-            int score = next_board.search(depth - 1);
+            int score = next_board.search(depth - 1, alpha, beta);
 
             if (side_to_move == WHITE) {
                 if (score > best_score) best_score = score;
+                if (score > alpha) alpha = score;
+                if (alpha >= beta) break;
             }
 
             else {
                 if (score < best_score) best_score = score;
+                if (score < beta) beta = score;
+                if (alpha >= beta) break;
             }
 
         }
@@ -260,7 +265,7 @@ struct Board {
         for (auto move : moves) {
             Board next_board = *this;
             next_board.make_move(move);
-            int score = next_board.search(depth - 1);
+            int score = next_board.search(depth - 1, -99999, 99999);
 
             if (side_to_move == WHITE) {
                 if (score > best_score) {
