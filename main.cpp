@@ -1,6 +1,7 @@
 #include <iostream>
 #include <array>
 #include <vector>
+#include <cmath>
 
 enum Piece {
     W_PAWN, W_ROOK, W_KNIGHT, W_BISHOP, W_QUEEN, W_KING,
@@ -122,6 +123,24 @@ struct Board {
                 }
             }
 
+            if ((board[i] == W_KNIGHT && side_to_move == WHITE) || (board[i] == B_KNIGHT && side_to_move == BLACK)) {
+                std::vector<int> knight_offsets = {-17, -15, -10, -6, 6, 10, 15, 17};
+
+                int start_file = i % 8;
+
+                for (int offset : knight_offsets) {
+                    int target = i + offset;
+                    int target_file = target % 8;
+
+                    if (target < 0 || target >= board.size()) continue;
+                    if (std::abs(start_file - target_file) > 2) continue;
+                    if (side_to_move == WHITE && W_PAWN <= board[target] && board[target] <= W_KING) continue;
+                    if (side_to_move == BLACK && B_PAWN <= board[target] && board[target] <= B_KING) continue;
+
+                    moves.push_back({i, target});
+                }
+            }
+
             if (!offsets.empty()) {
 
                 for (int offset : offsets) {
@@ -166,8 +185,9 @@ int main() {
     Board board = Board();
 
     board.board.fill(EMPTY);
-    board.board[35] = W_QUEEN;
+    board.board[7] = W_KNIGHT;
     board.print_board();
+
 
     std::cout << board.generate_moves().size() << std::endl;
 
