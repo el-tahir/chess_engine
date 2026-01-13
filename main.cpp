@@ -1,5 +1,6 @@
 #include <iostream>
 #include <array>
+#include <vector>
 
 enum Piece {
     W_PAWN, W_ROOK, W_KNIGHT, W_BISHOP, W_QUEEN, W_KING,
@@ -16,8 +17,6 @@ struct Move {
     int from;
     int to;
 };
-
-
 
 struct Board {
     std::array<Piece, 64> board;
@@ -76,20 +75,102 @@ struct Board {
         if (side_to_move == WHITE) side_to_move = BLACK;
         else side_to_move = WHITE;
     }
+
+    std::vector<Move> generate_moves() {
+        std::vector<Move> moves;
+
+        for (int i = 0; i < board.size(); i++) {
+
+            std::vector<int> offsets;
+
+            if ((board[i] == W_ROOK && side_to_move == WHITE) || (board[i] == B_ROOK && side_to_move == BLACK)) {
+                offsets = {-8, 8, -1, 1};
+            }
+            if ((board[i] == W_BISHOP && side_to_move == WHITE) || (board[i] == B_BISHOP && side_to_move == BLACK)) {
+                offsets = {-9, -7, 7, 9};
+            }
+            if ((board[i] == W_QUEEN && side_to_move == WHITE) || (board[i] == B_QUEEN && side_to_move == BLACK)) {
+                offsets = {-9, -7, 7, 9, -8, 8, -1, 1};
+            }
+            
+            int file = i % 8;
+
+            if (board[i] == W_PAWN && side_to_move == WHITE) {
+                if (i + 8 < board.size() && board[i + 8] == EMPTY) {
+                    moves.push_back({i, i + 8});
+                }
+
+                if (file != 0 && i + 7 < board.size() &&  B_PAWN <= board[i + 7] && board[i + 7] <= B_KING) {
+                    moves.push_back({i, i + 7});
+                }
+                if (file != 7 && i + 9 < board.size() && B_PAWN <= board[i + 9] && board[i + 9] <= B_KING) {
+                    moves.push_back({i, i + 9});
+                }
+
+            }
+
+            if (board[i] == B_PAWN && side_to_move == BLACK) {
+                if (i - 8 >= 0 && board[i - 8] == EMPTY) {
+                    moves.push_back({i, i - 8});
+                }
+
+                if (file != 0 && i - 9 >= 0 && W_PAWN <= board[i - 9] && board[i - 9] <= W_KING) {
+                    moves.push_back({i, i - 9});
+                }
+                if (file != 7 && i - 7 >= 0 && W_PAWN <= board[i - 7] && board[i - 7] <= W_KING) {
+                    moves.push_back({i, i - 7});
+                }
+            }
+
+            if (!offsets.empty()) {
+
+                for (int offset : offsets) {
+                    int target = i;
+
+                    while (true) {
+                        target += offset;
+
+                        if (target < 0 || target >= board.size()) break;
+
+                        int target_file = target % 8;
+                        if ((offset == -1 || offset == -9 || offset == 7) && target_file == 7) break; //wrap left
+                        if ((offset == 1 || offset == 9 || offset == -7 ) && target_file == 0) break; // wrap right
+
+                        if (board[target] == EMPTY) {
+                            moves.push_back({i, target});
+                            continue;
+                        }
+
+                        if (side_to_move == WHITE &&  B_PAWN <= board[target] && board[target] <= B_KING) {
+                            moves.push_back({i, target});
+                            break;
+                        }
+                        if (side_to_move == BLACK && W_PAWN <= board[target] && board[target] <= W_KING) {
+                            moves.push_back({i, target});
+                            break;
+                        }
+
+                        break; // friendly piece
+                    }
+                }
+            }
+        }
+
+        return moves;
+    }
 };
-
-
 
 
 int main() {
 
     Board board = Board();
 
-    board.init_board();
+    board.board.fill(EMPTY);
+    board.board[35] = W_QUEEN;
     board.print_board();
 
-    board.make_move({12, 28});
-    board.print_board();
+    std::cout << board.generate_moves().size() << std::endl;
+
 
     return 0;
 }
