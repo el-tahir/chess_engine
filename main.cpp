@@ -217,20 +217,96 @@ struct Board {
 
         return moves;
     }
+
+
+    int search(int depth) {
+        if (depth == 0) return evaluate();
+
+        std::vector<Move> moves = generate_moves();
+
+        int best_score;
+        if (side_to_move == WHITE) best_score = -99999;
+        else best_score = 99999;
+
+        for (auto move : moves) {
+            Board next_board = *this;
+            next_board.make_move(move);
+            int score = next_board.search(depth - 1);
+
+            if (side_to_move == WHITE) {
+                if (score > best_score) best_score = score;
+            }
+
+            else {
+                if (score < best_score) best_score = score;
+            }
+
+        }
+
+        return best_score;
+
+    }
+
+    Move get_best_move(int depth) {
+
+        Move best_move = {0, 0};
+
+        std::vector<Move> moves = generate_moves();
+
+        int best_score;
+        if (side_to_move == WHITE) best_score = -99999;
+        else best_score = 99999;
+
+        for (auto move : moves) {
+            Board next_board = *this;
+            next_board.make_move(move);
+            int score = next_board.search(depth - 1);
+
+            if (side_to_move == WHITE) {
+                if (score > best_score) {
+                    best_score = score;
+                    best_move = move;
+                }
+            }
+
+            else {
+                if (score < best_score) {
+                    best_score = score;
+                    best_move = move;
+                }
+            }
+
+        }
+
+        return best_move;
+        
+    }
+
 };
 
 
 int main() {
 
-    Board board = Board();
-
+    Board board;
     board.init_board();
 
-    std::cout << "evaluation of init board = " << board.evaluate() << std::endl;
+    board.board.fill(EMPTY);
 
-    board.board[12] = EMPTY;
+    board.board[12] = W_PAWN;
+    board.board[19] = B_ROOK;
 
-    std::cout << "evaluation after removed piece " << board.evaluate() << std::endl;
+    board.print_board();
+
+    Move best_move = board.get_best_move(1);
+
+    std::cout << "the best move is " << best_move.from << "->" << best_move.to << std::endl;
+    std::cout << "eval is " << board.evaluate() << std::endl;
+
+    board.make_move(best_move);
+
+    board.print_board();
+
+    std::cout << "eval is " << board.evaluate();
 
     return 0;
 }
