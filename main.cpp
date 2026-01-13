@@ -53,6 +53,26 @@ struct Board {
         return piece_chars[p];
     }
 
+    int get_piece_value(Piece p) {
+        static const int piece_values[] = {
+            100, 500, 320, 330, 900, 20000,
+            100, 500, 320, 330, 900, 20000,
+            0
+        };
+        return piece_values[p];
+    }
+
+    int evaluate() {
+        int total = 0;
+
+        for (int i = 0; i < board.size(); i++) {
+            if (W_PAWN <= board[i] && board[i] <= W_KING) total += get_piece_value(board[i]);
+            else total -= get_piece_value(board[i]);
+        }
+
+        return total;
+    }
+
     void print_board() {
         // index = (rank * 8) + file
         for (int rank = 7; rank >= 0; rank--) {
@@ -141,6 +161,26 @@ struct Board {
                 }
             }
 
+            if ((board[i] == W_KING && side_to_move == WHITE) || (board[i] == B_KING && side_to_move == BLACK)) {
+                std::vector<int> king_offsets = {-9, -8, -7, -1, 1, 7, 8, 9};
+
+                int start_file = i % 8;
+
+                for (int offset : king_offsets) {
+                    int target = i + offset;
+                    int target_file = target % 8;
+
+                    if (target < 0 || target >= board.size()) continue;
+                    if (std::abs(start_file - target_file) > 1) continue;
+                    if (side_to_move == WHITE && W_PAWN <= board[target] && board[target] <= W_KING) continue;
+                    if (side_to_move == BLACK && B_PAWN <= board[target] && board[target] <= B_KING) continue;
+
+                    moves.push_back({i, target});
+                }
+
+
+            }
+
             if (!offsets.empty()) {
 
                 for (int offset : offsets) {
@@ -184,13 +224,13 @@ int main() {
 
     Board board = Board();
 
-    board.board.fill(EMPTY);
-    board.board[7] = W_KNIGHT;
-    board.print_board();
+    board.init_board();
 
+    std::cout << "evaluation of init board = " << board.evaluate() << std::endl;
 
-    std::cout << board.generate_moves().size() << std::endl;
+    board.board[12] = EMPTY;
 
+    std::cout << "evaluation after removed piece " << board.evaluate() << std::endl;
 
     return 0;
 }
