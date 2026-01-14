@@ -2,6 +2,7 @@
 #include <array>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 enum Piece {
     W_PAWN, W_ROOK, W_KNIGHT, W_BISHOP, W_QUEEN, W_KING,
@@ -17,6 +18,33 @@ enum Color {
 struct Move {
     int from;
     int to;
+
+    bool operator==(const Move& other) {
+        return from == other.from && to == other.to;
+    }
+};
+
+
+const int pawn_table[64] = {
+     0,  0,  0,  0,  0,  0,  0,  0,  
+     5, 10, 10,-20,-20, 10, 10,  5,  
+     5, -5,-10,  0,  0,-10, -5,  5, 
+     0,  0,  0, 20, 20,  0,  0,  0, 
+     5,  5, 10, 25, 25, 10,  5,  5,  
+    10, 10, 20, 30, 30, 20, 10, 10,  
+    50, 50, 50, 50, 50, 50, 50, 50,  
+     0,  0,  0,  0,  0,  0,  0,  0 
+};
+
+const int knight_table[64] = {
+    -50,-40,-30,-30,-30,-30,-40,-50,
+    -40,-20,  0,  0,  0,  0,-20,-40,
+    -30,  0, 10, 15, 15, 10,  0,-30,
+    -30,  5, 15, 20, 20, 15,  5,-30,
+    -30,  0, 15, 20, 20, 15,  0,-30,
+    -30,  5, 10, 15, 15, 10,  5,-30,
+    -40,-20,  0,  5,  5,  0,-20,-40,
+    -50,-40,-30,-30,-30,-30,-40,-50
 };
 
 struct Board {
@@ -68,6 +96,12 @@ struct Board {
         for (int i = 0; i < board.size(); i++) {
             if (W_PAWN <= board[i] && board[i] <= W_KING) total += get_piece_value(board[i]);
             else total -= get_piece_value(board[i]);
+
+            if (board[i] == W_PAWN) total += pawn_table[i];
+            else if (board[i] == B_PAWN) total -= pawn_table[63 - i];
+
+            if (board[i] == W_KNIGHT) total += knight_table[i];
+            else if (board[i] == B_KNIGHT) total -= knight_table[63 - i];
         }
 
         return total;
@@ -115,12 +149,18 @@ struct Board {
             }
             
             int file = i % 8;
+            int rank = i / 8;
 
             if (board[i] == W_PAWN && side_to_move == WHITE) {
                 if (i + 8 < board.size() && board[i + 8] == EMPTY) {
-                    moves.push_back({i, i + 8});
+                    moves.push_back({i, i + 8}); // single push
+
+                    if (rank == 1 && board[i + 16] == EMPTY) { // double push
+                        moves.push_back({i, i + 16});
+                    }
                 }
 
+                // captures
                 if (file != 0 && i + 7 < board.size() &&  B_PAWN <= board[i + 7] && board[i + 7] <= B_KING) {
                     moves.push_back({i, i + 7});
                 }
@@ -133,6 +173,11 @@ struct Board {
             if (board[i] == B_PAWN && side_to_move == BLACK) {
                 if (i - 8 >= 0 && board[i - 8] == EMPTY) {
                     moves.push_back({i, i - 8});
+
+                    if (rank == 6 && board[i - 16] == EMPTY) {
+                        moves.push_back({i, i - 16});
+                    }
+
                 }
 
                 if (file != 0 && i - 9 >= 0 && W_PAWN <= board[i - 9] && board[i - 9] <= W_KING) {
@@ -287,6 +332,15 @@ struct Board {
         
     }
 
+    Move parse_move(std::string input) {
+        Move move;
+
+        move.from = (input[0] - 'a') + ((input[1] - '1') * 8);
+        move.to = (input[2] - 'a') + ((input[3] - '1') * 8);
+
+        return move;
+    }
+
 };
 
 
@@ -295,23 +349,27 @@ int main() {
     Board board;
     board.init_board();
 
-    board.board.fill(EMPTY);
+    while (true) {
+        board.print_board();
+        
+        if (board.is_white_turn()) {
+            std::string input;
+            std::cin >> input;
 
-    board.board[12] = W_PAWN;
-    board.board[19] = B_ROOK;
+            Move m = board.parse_move(input);
 
-    board.print_board();
+            std::vector<Move> legal_moves = board.generate_moves();
+            if (std::find(legal_moves.begin(), legal_moves.end(), m) != legal_moves.end()) {
+                board.make_move(m);
+            } else {
+                std::cout << "illegal move!" << std::endl;
+            }
 
-    Move best_move = board.get_best_move(1);
-
-    std::cout << "the best move is " << best_move.from << "->" << best_move.to << std::endl;
-    std::cout << "eval is " << board.evaluate() << std::endl;
-
-    board.make_move(best_move);
-
-    board.print_board();
-
-    std::cout << "eval is " << board.evaluate();
+        } else {
+            Move best = board.get_best_move(3);
+            board.make_move(best);
+        }
+    }
 
     return 0;
 }
