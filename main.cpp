@@ -93,7 +93,7 @@ struct Board {
     int evaluate() {
         int total = 0;
 
-        for (int i = 0; i < board.size(); i++) {
+        for (int i = 0; i < 64; i++) {
             if (W_PAWN <= board[i] && board[i] <= W_KING) total += get_piece_value(board[i]);
             else total -= get_piece_value(board[i]);
 
@@ -131,10 +131,21 @@ struct Board {
         else side_to_move = WHITE;
     }
 
-    std::vector<Move> generate_moves() {
+    int find_king(Color side) {
+
+        for (int i = 0; i < 64; i++) {
+            if (side == WHITE && board[i] == W_KING) return i;
+            if (side == BLACK && board[i] == B_KING) return i;
+        }
+
+        return -1; // lol should never happen
+
+    }
+
+    std::vector<Move> generate_pseudo_moves() {
         std::vector<Move> moves;
 
-        for (int i = 0; i < board.size(); i++) {
+        for (int i = 0; i < 64; i++) {
 
             std::vector<int> offsets;
 
@@ -151,8 +162,10 @@ struct Board {
             int file = i % 8;
             int rank = i / 8;
 
+            // pawns
+
             if (board[i] == W_PAWN && side_to_move == WHITE) {
-                if (i + 8 < board.size() && board[i + 8] == EMPTY) {
+                if (i + 8 < 64 && board[i + 8] == EMPTY) {
                     moves.push_back({i, i + 8}); // single push
 
                     if (rank == 1 && board[i + 16] == EMPTY) { // double push
@@ -161,10 +174,10 @@ struct Board {
                 }
 
                 // captures
-                if (file != 0 && i + 7 < board.size() &&  B_PAWN <= board[i + 7] && board[i + 7] <= B_KING) {
+                if (file != 0 && i + 7 < 64 &&  B_PAWN <= board[i + 7] && board[i + 7] <= B_KING) {
                     moves.push_back({i, i + 7});
                 }
-                if (file != 7 && i + 9 < board.size() && B_PAWN <= board[i + 9] && board[i + 9] <= B_KING) {
+                if (file != 7 && i + 9 < 64 && B_PAWN <= board[i + 9] && board[i + 9] <= B_KING) {
                     moves.push_back({i, i + 9});
                 }
 
@@ -188,6 +201,8 @@ struct Board {
                 }
             }
 
+            // knights
+
             if ((board[i] == W_KNIGHT && side_to_move == WHITE) || (board[i] == B_KNIGHT && side_to_move == BLACK)) {
                 std::vector<int> knight_offsets = {-17, -15, -10, -6, 6, 10, 15, 17};
 
@@ -197,7 +212,7 @@ struct Board {
                     int target = i + offset;
                     int target_file = target % 8;
 
-                    if (target < 0 || target >= board.size()) continue;
+                    if (target < 0 || target >= 64) continue;
                     if (std::abs(start_file - target_file) > 2) continue;
                     if (side_to_move == WHITE && W_PAWN <= board[target] && board[target] <= W_KING) continue;
                     if (side_to_move == BLACK && B_PAWN <= board[target] && board[target] <= B_KING) continue;
@@ -215,7 +230,7 @@ struct Board {
                     int target = i + offset;
                     int target_file = target % 8;
 
-                    if (target < 0 || target >= board.size()) continue;
+                    if (target < 0 || target >= 64) continue;
                     if (std::abs(start_file - target_file) > 1) continue;
                     if (side_to_move == WHITE && W_PAWN <= board[target] && board[target] <= W_KING) continue;
                     if (side_to_move == BLACK && B_PAWN <= board[target] && board[target] <= B_KING) continue;
@@ -234,7 +249,7 @@ struct Board {
                     while (true) {
                         target += offset;
 
-                        if (target < 0 || target >= board.size()) break;
+                        if (target < 0 || target >= 64) break;
 
                         int target_file = target % 8;
                         if ((offset == -1 || offset == -9 || offset == 7) && target_file == 7) break; //wrap left
@@ -261,6 +276,26 @@ struct Board {
         }
 
         return moves;
+    }
+
+    std::vector<Move> generate_moves() {
+
+        std::vector<Move> all_moves = generate_pseudo_moves();
+        std::vector<Move> legal_moves;
+
+        for (Move move : all_moves) {
+            Board temp = *this;
+            temp.make_move(move);
+
+            int king_sq = temp.find_king(this->side_to_move);
+
+            if (!temp.is_square_attacked(king_sq, temp.side_to_move)) {
+                legal_moves.push_back(move);
+            }
+        }
+
+        return legal_moves;
+
     }
 
 
@@ -341,6 +376,144 @@ struct Board {
         return move;
     }
 
+    bool is_square_attacked(int square, Color side_attacking) {
+
+        int file = square % 8;
+        int rank = square / 8;
+
+        // pawn checks
+        if (side_attacking == WHITE) {
+
+            // white pawns attack diagonally up,
+            // so we check squares below
+
+            if (file != 0 && square - 9 >= 0) { // down-left
+                if (board[square - 9] == W_PAWN) return true;
+            }
+
+            if (file != 7 && square - 7 >= 0) { // down-right
+                if (board[square - 7] == W_PAWN) return true;
+            }
+
+        } else {    
+
+            // black pawns attack diagonally down,
+            // so we check squares above
+
+
+            if (file != 0 && square + 7 < 64 ) { // up-left
+                if (board[square + 7] == B_PAWN) return true;
+            }
+
+            if (file != 7 && square + 9 < 64) { // up-right
+                if (board[square + 9] == B_PAWN) return true;
+            }
+
+        }
+
+
+        // knight checks
+
+        std::vector<int> knight_offsets = {-17, -15, -10, -6, 6, 10, 15, 17};
+
+        for (int offset : knight_offsets) {
+
+            int target = square + offset;
+            int target_file = target % 8;
+
+            if (target < 0 || target >= 64) continue;
+            if (std::abs(file - target_file) > 2) continue; // wrap around check
+
+            if (side_attacking == WHITE && board[target] == W_KNIGHT) return true;
+            if (side_attacking == BLACK && board[target] == B_KNIGHT) return true;
+        }
+
+        // sliding pieces
+
+        // check for rook / queen
+
+        std::vector<int> rook_offsets = {-8, 8, -1, 1};
+
+        for (int offset : rook_offsets) {
+
+            int target = square;
+
+            while (true) {
+                target += offset;
+
+                if (target < 0 || target >= 64) break;
+
+                int target_file = target % 8;
+
+                // wrap check for horizontal movement
+
+                if (offset == -1 && target_file == 7) break; // wrap left
+                if (offset == 1 && target_file == 0) break; // wrap right
+
+                if (board[target] == EMPTY) continue;
+
+                // hit a piece
+
+                if (side_attacking == WHITE) {
+                    if (board[target] == W_ROOK || board[target] == W_QUEEN) return true;
+                } else {
+                    if (board[target] == B_ROOK || board[target] == B_QUEEN) return true;
+                }
+
+                break; // hit a piece thats not attacking, stop sliding
+
+            }
+
+        }
+
+        // check for bishop / queen
+
+        std::vector<int> bishop_offsets = {-9, -7, 7, 9};
+
+        for (int offset : bishop_offsets) {
+            int target = square;
+
+            while (true) {
+                target += offset;
+
+                if (target < 0 || target >= 64) break;
+
+                int target_file = target % 8;
+
+                if ((offset == -9 || offset == 7) && target_file == 7) break;
+                if ((offset == -7 || offset == 9) && target_file == 0) break;
+
+                if (board[target] == EMPTY) continue;
+
+                if (side_attacking == WHITE) {
+                    if (board[target] == W_BISHOP || board[target] == W_QUEEN) return true;
+                } else {
+                    if (board[target] == B_BISHOP || board[target] == B_QUEEN) return true;
+                }
+
+                break;
+
+            }
+        }
+
+        std::vector<int> king_offsets = {-9, -8, -7, -1, 1, 7, 8, 9};
+
+        for (int offset : king_offsets) {
+            int target = square + offset;
+
+            int target_file = target % 8;
+
+            if (target < 0 || target >= 64) continue;
+            if (std::abs(file - target_file) > 1) continue;
+
+            if (side_attacking == WHITE && board[target] == W_KING) return true;
+            if (side_attacking == BLACK && board[target] == B_KING) return true;
+        }
+
+        return false;
+
+    }
+
 };
 
 
@@ -349,27 +522,27 @@ int main() {
     Board board;
     board.init_board();
 
-    while (true) {
-        board.print_board();
-        
-        if (board.is_white_turn()) {
-            std::string input;
-            std::cin >> input;
+    board.board.fill(EMPTY);
 
-            Move m = board.parse_move(input);
+    board.board[4] = W_KING;
+    board.board[60] = B_ROOK;
 
-            std::vector<Move> legal_moves = board.generate_moves();
-            if (std::find(legal_moves.begin(), legal_moves.end(), m) != legal_moves.end()) {
-                board.make_move(m);
-            } else {
-                std::cout << "illegal move!" << std::endl;
-            }
+    board.board[53] = B_KING;
+    board.board[23] = W_PAWN;
+    board.board[22] = W_PAWN;
 
-        } else {
-            Move best = board.get_best_move(3);
-            board.make_move(best);
-        }
+    board.print_board();
+
+    std::cout << "evaluation is " << board.evaluate() << std::endl;
+
+    std::cout << "legal moves are :" << std::endl;
+    
+    for (Move move : board.generate_moves()) {
+        std::cout << "(" << move.from  << ", " << move.to << ")";
     }
+    std::cout << std::endl;
+
+
 
     return 0;
 }
