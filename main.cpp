@@ -81,6 +81,22 @@ struct Board {
         return piece_chars[p];
     }
 
+    Piece get_piece_from_char(char c) {
+        static const std::string piece_chars = "PRNBQKprnbqk.";
+
+        static const Piece pieces[] = {
+            W_PAWN, W_ROOK, W_KNIGHT, W_BISHOP, W_QUEEN, W_KING,
+            B_PAWN, B_ROOK, B_KNIGHT, B_BISHOP, B_QUEEN, B_KING,
+            EMPTY
+        };
+
+        for (int i = 0; i < piece_chars.length(); i++) {
+            if (piece_chars[i] == c) return pieces[i];
+        }
+
+        return EMPTY;
+    }
+
     int get_piece_value(Piece p) {
         static const int piece_values[] = {
             100, 500, 320, 330, 900, 20000,
@@ -305,6 +321,16 @@ struct Board {
 
         std::vector<Move> moves = generate_moves();
 
+        if (moves.empty()) {
+            int king_sq = find_king(side_to_move);
+
+            if (is_square_attacked(king_sq, side_to_move == WHITE ? BLACK : WHITE)) {
+                return (side_to_move == WHITE) ? -99999 : 9999;
+            }
+
+            return 0;
+        }
+
         int best_score;
         if (side_to_move == WHITE) best_score = -99999;
         else best_score = 99999;
@@ -514,35 +540,63 @@ struct Board {
 
     }
 
+    void load_fen(std::string fen) {
+        board.fill(EMPTY);
+
+        int rank = 7;
+        int file = 0;
+
+        int curr = 0;
+
+        while(fen[curr] != ' ') {
+            if (fen[curr] == '/' ) {
+                rank--;
+                file = 0;
+            }
+
+            else if (std::isdigit(fen[curr])) {
+                file += fen[curr] - '0';
+            }
+
+            else if (std::isalpha(fen[curr])) {
+                board[(rank * 8) + file] = get_piece_from_char(fen[curr]);
+                file++;
+            }
+
+            curr++;
+        }
+
+        curr++; // skip the space
+
+        if (fen[curr] == 'w') {
+            side_to_move = WHITE;
+        } else if (fen[curr] == 'b') {
+            side_to_move = BLACK;
+        }
+
+    }
+
 };
+
+int square_to_index(std::string square) {
+
+    if (square.size() != 2) {
+        throw std::invalid_argument("square length should be 2 characters");
+    }
+
+    int file = square[0] - 'a';
+    int rank = square[1] - '1';
+    return rank * 8 + file;
+}
 
 
 int main() {
 
     Board board;
-    board.init_board();
 
-    board.board.fill(EMPTY);
-
-    board.board[4] = W_KING;
-    board.board[60] = B_ROOK;
-
-    board.board[53] = B_KING;
-    board.board[23] = W_PAWN;
-    board.board[22] = W_PAWN;
-
-    board.print_board();
-
-    std::cout << "evaluation is " << board.evaluate() << std::endl;
-
-    std::cout << "legal moves are :" << std::endl;
+    board.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     
-    for (Move move : board.generate_moves()) {
-        std::cout << "(" << move.from  << ", " << move.to << ")";
-    }
-    std::cout << std::endl;
-
-
+    board.print_board();
 
     return 0;
 }
