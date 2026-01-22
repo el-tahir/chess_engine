@@ -65,6 +65,20 @@ int square_to_index(std::string square) {
     return rank * 8 + file;
 }
 
+std::string index_to_square(int index) {
+    if (index < 0 || index > 63) {
+        throw std::invalid_argument("index must be between 0 and 63");
+    }
+
+    int file = index % 8;
+    int rank = index / 8;
+    std::string square;
+    square += static_cast<char>('a' + file);
+    square += static_cast<char>('1' + rank);
+
+    return square;
+}
+
 
 
 struct Board {
@@ -74,6 +88,8 @@ struct Board {
     Color side_to_move;
 
     int castling_rights;
+
+    int en_passant_square = -1;
 
     void init_board() {
         
@@ -209,16 +225,22 @@ struct Board {
             if (move.from == square_to_index("a8")) castling_rights &= ~CASTLE_BQ;
         }
 
-        if (p == W_PAWN && move.to / 8 == 7) { // auto-promote to queen
-            board[move.to] = W_QUEEN;
+        int new_en_passant = -1;
+
+        if (p == W_PAWN) { 
+            if (move.to / 8 == 7) board[move.to] = W_QUEEN;
+            if (move.to == en_passant_square) board[move.to - 8] = EMPTY;
+            if (move.to - move.from == 16) new_en_passant = move.from + 8;
         }
 
-        if (p == B_PAWN && move.to / 8 == 0) {
-            board[move.to] = B_QUEEN;
+        if (p == B_PAWN) {
+            if (move.to / 8 == 0) board[move.to] = B_QUEEN;
+            if (move.to == en_passant_square) board[move.to + 8] = EMPTY;
+            if (move.from - move.to == 16) new_en_passant = move.from - 8;
         }
 
-        if (side_to_move == WHITE) side_to_move = BLACK;
-        else side_to_move = WHITE;
+        en_passant_square = new_en_passant;
+        side_to_move = (side_to_move == WHITE) ? BLACK : WHITE;
     }
 
     int find_king(Color side) {
@@ -259,15 +281,16 @@ struct Board {
                     moves.push_back({i, i + 8}); // single push
 
                     if (rank == 1 && board[i + 16] == EMPTY) { // double push
+                        
                         moves.push_back({i, i + 16});
                     }
                 }
 
                 // captures
-                if (file != 0 && i + 7 < 64 &&  B_PAWN <= board[i + 7] && board[i + 7] <= B_KING) {
+                if (file != 0 && i + 7 < 64 && ((B_PAWN <= board[i + 7] && board[i + 7] <= B_KING) || (i + 7 == en_passant_square))) {
                     moves.push_back({i, i + 7});
                 }
-                if (file != 7 && i + 9 < 64 && B_PAWN <= board[i + 9] && board[i + 9] <= B_KING) {
+                if (file != 7 && i + 9 < 64 && ((B_PAWN <= board[i + 9] && board[i + 9] <= B_KING) || (i + 9 == en_passant_square))) {
                     moves.push_back({i, i + 9});
                 }
 
@@ -283,10 +306,10 @@ struct Board {
 
                 }
 
-                if (file != 0 && i - 9 >= 0 && W_PAWN <= board[i - 9] && board[i - 9] <= W_KING) {
+                if (file != 0 && i - 9 >= 0 && ((W_PAWN <= board[i - 9] && board[i - 9] <= W_KING) || (i - 9 == en_passant_square))) {
                     moves.push_back({i, i - 9});
                 }
-                if (file != 7 && i - 7 >= 0 && W_PAWN <= board[i - 7] && board[i - 7] <= W_KING) {
+                if (file != 7 && i - 7 >= 0 && ((W_PAWN <= board[i - 7] && board[i - 7] <= W_KING) || (i - 7 == en_passant_square))) {
                     moves.push_back({i, i - 7});
                 }
             }
@@ -689,7 +712,7 @@ struct Board {
 
         curr++; // skip another space
 
-        while (fen[curr] != ' ') {
+        while (fen[curr] != ' ') { // castling rights
             if (fen[curr] == 'K') castling_rights |= CASTLE_WK;
             else if (fen[curr] == 'Q') castling_rights |= CASTLE_WQ;
             else if (fen[curr] == 'k') castling_rights |= CASTLE_BK;
@@ -697,6 +720,22 @@ struct Board {
 
             curr++;
         }
+
+        curr++;
+
+        if (fen[curr] == '-') {
+            en_passant_square = -1;
+        }
+        else {
+            std::string en_passant = "";
+            en_passant += fen[curr];
+            curr++;
+            en_passant += fen[curr];
+
+            en_passant_square = square_to_index(en_passant);
+        }
+
+
 
     }
 
@@ -706,35 +745,23 @@ struct Board {
 
 
 
-
-
-
-
-
 int main() {
 
     Board board;
-    
-    board.board.fill(EMPTY);
 
-    board.board[square_to_index("e1")] = W_KING;
-    board.board[square_to_index("h1")] = W_ROOK;
-    board.board[square_to_index("a1")] = W_ROOK;
-
-    board.board[square_to_index("d8")] = B_QUEEN;
-
-    board.side_to_move = WHITE;
+    board.load_fen("rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1");
 
     board.print_board();
 
-    std::cout << "possible moves: " << std::endl;
-
     for (auto move : board.generate_moves()) {
-        std::cout << move.from  << " -> " << move.to << std::endl;
+        std::cout << "(" << index_to_square(move.from) << " -> " << index_to_square(move.to)  << "), ";
     }
-    
-    
-    
+
+    std::cout << std::endl;
+
+    board.make_move({square_to_index("e5"), square_to_index("d6")});
+
+    board.print_board();
 
     return 0;
 }
