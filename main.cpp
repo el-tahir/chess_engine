@@ -4,6 +4,12 @@
 #include <cmath>
 #include <algorithm>
 
+const int CASTLE_WK = 1; // 0001
+const int CASTLE_WQ = 2; // 0010
+const int CASTLE_BK = 4; // 0100
+const int CASTLE_BQ = 8; // 1000
+
+
 enum Piece {
     W_PAWN, W_ROOK, W_KNIGHT, W_BISHOP, W_QUEEN, W_KING,
     B_PAWN, B_ROOK, B_KNIGHT, B_BISHOP, B_QUEEN, B_KING,
@@ -47,14 +53,33 @@ const int knight_table[64] = {
     -50,-40,-30,-30,-30,-30,-40,-50
 };
 
+
+int square_to_index(std::string square) {
+
+    if (square.size() != 2) {
+        throw std::invalid_argument("square length should be 2 characters");
+    }
+
+    int file = square[0] - 'a';
+    int rank = square[1] - '1';
+    return rank * 8 + file;
+}
+
+
+
 struct Board {
+
     std::array<Piece, 64> board;
 
     Color side_to_move;
 
+    int castling_rights;
+
     void init_board() {
         
-        side_to_move = WHITE; 
+        side_to_move = WHITE;
+        
+        castling_rights = CASTLE_WK | CASTLE_WQ | CASTLE_BK | CASTLE_BQ;
 
         board.fill(EMPTY);
 
@@ -140,9 +165,58 @@ struct Board {
     }
 
     void make_move(Move move) {
-        Piece p = board[move.from];
+
+        Piece p = board[move.from];    
         board[move.from] = EMPTY;
         board[move.to] = p;
+
+        if (p == W_KING) { // lose castling rights on both sides
+            int distance = move.to - move.from;
+
+            if (distance == 2) { // kingside castle
+                board[square_to_index("h1")] = EMPTY;
+                board[square_to_index("f1")] = W_ROOK;
+            } else if (distance == -2) { // queenside castle
+                board[square_to_index("a1")] = EMPTY;
+                board[square_to_index("d1")] = W_ROOK;
+            }
+
+            castling_rights &= ~CASTLE_WK;
+            castling_rights &= ~CASTLE_WQ;
+        }
+
+        if (p == W_ROOK) {
+            if (move.from == square_to_index("h1")) castling_rights &= ~CASTLE_WK;
+            if (move.from == square_to_index("a1")) castling_rights &= ~CASTLE_WQ;
+        }
+
+        if (p == B_KING) {
+            int distance = move.to - move.from;
+            
+            if (distance == 2) {
+                board[square_to_index("h8")] = EMPTY;
+                board[square_to_index("f8")] = B_ROOK;
+            } else if (distance == -2) {
+                board[square_to_index("a8")] = EMPTY;
+                board[square_to_index("d8")] = B_ROOK;
+            }
+            castling_rights &= ~CASTLE_BK;
+            castling_rights &= ~CASTLE_BQ;
+        }
+
+        if (p == B_ROOK) {
+            if (move.from == square_to_index("h8")) castling_rights &= ~CASTLE_BK;
+            if (move.from == square_to_index("a8")) castling_rights &= ~CASTLE_BQ;
+        }
+
+        if (p == W_PAWN && move.to / 8 == 7) { // auto-promote to queen
+            board[move.to] = W_QUEEN;
+        }
+
+        if (p == B_PAWN && move.to / 8 == 0) {
+            board[move.to] = B_QUEEN;
+        }
+
         if (side_to_move == WHITE) side_to_move = BLACK;
         else side_to_move = WHITE;
     }
@@ -237,6 +311,8 @@ struct Board {
                 }
             }
 
+            // kings
+
             if ((board[i] == W_KING && side_to_move == WHITE) || (board[i] == B_KING && side_to_move == BLACK)) {
                 std::vector<int> king_offsets = {-9, -8, -7, -1, 1, 7, 8, 9};
 
@@ -254,6 +330,39 @@ struct Board {
                     moves.push_back({i, target});
                 }
 
+                if (castling_rights & CASTLE_WK)  { // white kingside
+                    if (board[square_to_index("f1")] == EMPTY
+                     && board[square_to_index("g1")] == EMPTY
+                     && !is_square_attacked(square_to_index("e1"), BLACK)
+                     && !is_square_attacked(square_to_index("f1"), BLACK))
+                     moves.push_back({square_to_index("e1"), square_to_index("g1")});
+                }
+
+                if (castling_rights & CASTLE_WQ) {
+                    if (board[square_to_index("b1")] == EMPTY
+                     && board[square_to_index("c1")] == EMPTY
+                     && board[square_to_index("d1")] == EMPTY
+                     && !is_square_attacked(square_to_index("e1"), BLACK)
+                     && !is_square_attacked(square_to_index("d1"), BLACK))
+                     moves.push_back({square_to_index("e1"), square_to_index("c1")});
+                }
+
+                if (castling_rights & CASTLE_BK)  { // black kingside
+                    if (board[square_to_index("f8")] == EMPTY
+                     && board[square_to_index("g8")] == EMPTY
+                     && !is_square_attacked(square_to_index("e8"), BLACK)
+                     && !is_square_attacked(square_to_index("f8"), BLACK))
+                     moves.push_back({square_to_index("e8"), square_to_index("g8")});
+                }
+
+                if (castling_rights & CASTLE_BQ) {
+                    if (board[square_to_index("b8")] == EMPTY
+                     && board[square_to_index("c8")] == EMPTY
+                     && board[square_to_index("d8")] == EMPTY
+                     && !is_square_attacked(square_to_index("e8"), BLACK)
+                     && !is_square_attacked(square_to_index("d8"), BLACK))
+                     moves.push_back({square_to_index("e8"), square_to_index("c8")});
+                }
 
             }
 
@@ -548,6 +657,8 @@ struct Board {
 
         int curr = 0;
 
+        castling_rights = 0;
+
         while(fen[curr] != ' ') {
             if (fen[curr] == '/' ) {
                 rank--;
@@ -573,30 +684,57 @@ struct Board {
         } else if (fen[curr] == 'b') {
             side_to_move = BLACK;
         }
+        
+        curr++; // move past 'w' or 'b'
+
+        curr++; // skip another space
+
+        while (fen[curr] != ' ') {
+            if (fen[curr] == 'K') castling_rights |= CASTLE_WK;
+            else if (fen[curr] == 'Q') castling_rights |= CASTLE_WQ;
+            else if (fen[curr] == 'k') castling_rights |= CASTLE_BK;
+            else if (fen[curr] == 'q') castling_rights |= CASTLE_BQ;
+
+            curr++;
+        }
 
     }
+
+    
 
 };
 
-int square_to_index(std::string square) {
 
-    if (square.size() != 2) {
-        throw std::invalid_argument("square length should be 2 characters");
-    }
 
-    int file = square[0] - 'a';
-    int rank = square[1] - '1';
-    return rank * 8 + file;
-}
+
+
+
 
 
 int main() {
 
     Board board;
-
-    board.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     
+    board.board.fill(EMPTY);
+
+    board.board[square_to_index("e1")] = W_KING;
+    board.board[square_to_index("h1")] = W_ROOK;
+    board.board[square_to_index("a1")] = W_ROOK;
+
+    board.board[square_to_index("d8")] = B_QUEEN;
+
+    board.side_to_move = WHITE;
+
     board.print_board();
+
+    std::cout << "possible moves: " << std::endl;
+
+    for (auto move : board.generate_moves()) {
+        std::cout << move.from  << " -> " << move.to << std::endl;
+    }
+    
+    
+    
 
     return 0;
 }
