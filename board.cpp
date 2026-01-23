@@ -6,7 +6,6 @@
 
 #include "include/board.h"
 #include "include/pst_tables.h"
-#include "board.h"
 
 int square_to_index(const std::string& square) {
     if (square.size() != 2) {
@@ -146,11 +145,15 @@ UndoInfo Board::make_move(Move move) {
         int distance = move.to - move.from;
 
         if (distance == 2) { // kingside castle
-            board[square_to_index("h1")] = EMPTY;
-            board[square_to_index("f1")] = W_ROOK;
+            if (board[square_to_index("h1")] == W_ROOK) {
+                board[square_to_index("h1")] = EMPTY;
+                board[square_to_index("f1")] = W_ROOK;
+            }
         } else if (distance == -2) { // queenside castle
-            board[square_to_index("a1")] = EMPTY;
-            board[square_to_index("d1")] = W_ROOK;
+            if (board[square_to_index("a1")] == W_ROOK) {
+                board[square_to_index("a1")] = EMPTY;
+                board[square_to_index("d1")] = W_ROOK;
+            }
         }
 
         castling_rights &= ~CASTLE_WK;
@@ -166,11 +169,15 @@ UndoInfo Board::make_move(Move move) {
         int distance = move.to - move.from;
 
         if (distance == 2) {
-            board[square_to_index("h8")] = EMPTY;
-            board[square_to_index("f8")] = B_ROOK;
+            if (board[square_to_index("h8")] == B_ROOK) {
+                board[square_to_index("h8")] = EMPTY;
+                board[square_to_index("f8")] = B_ROOK;
+            }
         } else if (distance == -2) {
-            board[square_to_index("a8")] = EMPTY;
-            board[square_to_index("d8")] = B_ROOK;
+            if (board[square_to_index("a8")] == B_ROOK) {
+                board[square_to_index("a8")] = EMPTY;
+                board[square_to_index("d8")] = B_ROOK;
+            }
         }
         castling_rights &= ~CASTLE_BK;
         castling_rights &= ~CASTLE_BQ;
@@ -359,7 +366,8 @@ std::vector<Move> Board::generate_pseudo_moves() {
 
             if (side_to_move == WHITE) {
                 if (castling_rights & CASTLE_WK)  { // white kingside
-                    if (board[square_to_index("f1")] == EMPTY
+                    if (board[square_to_index("h1")] == W_ROOK
+                     && board[square_to_index("f1")] == EMPTY
                      && board[square_to_index("g1")] == EMPTY
                      && !is_square_attacked(square_to_index("e1"), BLACK)
                      && !is_square_attacked(square_to_index("f1"), BLACK)
@@ -368,7 +376,8 @@ std::vector<Move> Board::generate_pseudo_moves() {
                 }
 
                 if (castling_rights & CASTLE_WQ) {
-                    if (board[square_to_index("b1")] == EMPTY
+                    if (board[square_to_index("a1")] == W_ROOK
+                     && board[square_to_index("b1")] == EMPTY
                      && board[square_to_index("c1")] == EMPTY
                      && board[square_to_index("d1")] == EMPTY
                      && !is_square_attacked(square_to_index("e1"), BLACK)
@@ -378,7 +387,8 @@ std::vector<Move> Board::generate_pseudo_moves() {
                 }
             } else {
                 if (castling_rights & CASTLE_BK)  { // black kingside
-                    if (board[square_to_index("f8")] == EMPTY
+                    if (board[square_to_index("h8")] == B_ROOK
+                     && board[square_to_index("f8")] == EMPTY
                      && board[square_to_index("g8")] == EMPTY
                      && !is_square_attacked(square_to_index("e8"), WHITE)
                      && !is_square_attacked(square_to_index("f8"), WHITE)
@@ -387,7 +397,8 @@ std::vector<Move> Board::generate_pseudo_moves() {
                 }
 
                 if (castling_rights & CASTLE_BQ) {
-                    if (board[square_to_index("b8")] == EMPTY
+                    if (board[square_to_index("a8")] == B_ROOK
+                     && board[square_to_index("b8")] == EMPTY
                      && board[square_to_index("c8")] == EMPTY
                      && board[square_to_index("d8")] == EMPTY
                      && !is_square_attacked(square_to_index("e8"), WHITE)

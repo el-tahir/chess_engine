@@ -10,6 +10,14 @@
 int square_to_index(const std::string& square);
 std::string index_to_square(int index);
 
+struct UndoInfo {
+    Piece moved_piece; // piece from move.from before moving
+    Piece captured_piece; // EMPTY if none
+    int captured_square;  // move.to normally, or en passant pawn square
+    int prev_castling_rights;
+    int prev_en_passant_square;
+};
+
 struct Board {
     std::array<Piece, 64> board;
     Color side_to_move;
@@ -36,12 +44,6 @@ struct Board {
 };
 
 
-struct UndoInfo {
-    Piece moved_piece; // piece from move.from before moving
-    Piece captured_piece; // EMPTY if none
-    int captured_square;  // move.to normally, or en passant pawn square
-    int prev_castling_rights;
-    int prev_en_passant_square;
-};
+
 
 #endif
