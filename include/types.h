@@ -21,7 +21,7 @@ struct Move {
     int from;
     int to;
 
-    bool operator==(const Move& other) {
+    bool operator==(const Move& other) const {
         return from == other.from && to == other.to;
     }
 };

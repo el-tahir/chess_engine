@@ -507,25 +507,33 @@ Move Board::get_best_move(int depth) {
 
     std::vector<Move> moves = generate_moves();
 
+    if (moves.empty()) return best_move;
+
     const bool maximizing = (side_to_move == WHITE);
-    int best_score = maximizing ? -99999 : 99999;
 
-    for (auto move : moves) {
-        UndoInfo undo = make_move(move);
+    {
+        UndoInfo undo = make_move(moves[0]);
         int score = search(depth - 1, -99999, 99999);
-        unmake_move(move, undo);
+        unmake_move(moves[0], undo);
+        best_move = moves[0];
+        int best_score = score;
 
-        if (maximizing) {
-            if (score > best_score) {
-                best_score = score;
-                best_move = move;
-            }
-        }
+        for (size_t i = 1; i < moves.size(); i++) {
+            Move move = moves[i];
+            UndoInfo undo2 = make_move(move);
+            int score2 = search(depth - 1, -99999, 99999);
+            unmake_move(move, undo2);
 
-        else {
-            if (score < best_score) {
-                best_score = score;
-                best_move = move;
+            if (maximizing) {
+                if (score2 > best_score) {
+                    best_score = score2;
+                    best_move = move;
+                }
+            } else {
+                if (score2 < best_score) {
+                    best_score = score2;
+                    best_move = move;
+                }
             }
         }
     }
