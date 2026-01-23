@@ -1,6 +1,6 @@
 # Chess Engine
 
-This is a really simple chess engine.
+This is a really simple chess engine that speaks UCI.
 
 ## Build
 
@@ -17,6 +17,12 @@ make win
 Clean:
 ```
 make clean
+```
+
+## Play in Terminal
+
+```
+./chess_engine cli
 ```
 
 ## Commands (UCI)
