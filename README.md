@@ -1,4 +1,4 @@
-# Simple Chess Engine (UCI)
+# Chess Engine
 
 This is a really simple chess engine.
 
@@ -9,7 +9,7 @@ Linux:
 make
 ```
 
-Windows (from Linux, using MinGW cross-compiler):
+Windows (from WSL, using MinGW cross-compiler):
 ```
 make win
 ```
