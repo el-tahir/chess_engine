@@ -1,2 +1,4 @@
 main
 chess_engine
+*.o
+*.exe
