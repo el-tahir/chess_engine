@@ -6,6 +6,7 @@
 
 #include "include/board.h"
 #include "include/pst_tables.h"
+#include "board.h"
 
 int square_to_index(const std::string& square) {
     if (square.size() != 2) {
@@ -119,16 +120,27 @@ bool Board::is_white_turn() {
     return side_to_move == WHITE;
 }
 
-void Board::make_move(Move move) {
+UndoInfo Board::make_move(Move move) {
+
+    UndoInfo undo;
+    undo.prev_castling_rights = castling_rights;
+    undo.prev_en_passant_square = en_passant_square;
+    undo.moved_piece = board[move.from];
+    undo.captured_square = move.to;
+    undo.captured_piece = board[move.to];
+
     // if a rook is captured, update castling rights
     if (move.to == square_to_index("h1")) castling_rights &= ~CASTLE_WK;
     if (move.to == square_to_index("a1")) castling_rights &= ~CASTLE_WQ;
     if (move.to == square_to_index("h8")) castling_rights &= ~CASTLE_BK;
     if (move.to == square_to_index("a8")) castling_rights &= ~CASTLE_BQ;
 
-    Piece p = board[move.from];
+    Piece p = board[move.from];    
+
     board[move.from] = EMPTY;
     board[move.to] = p;
+
+    
 
     if (p == W_KING) { // lose castling rights on both sides
         int distance = move.to - move.from;
@@ -173,18 +185,72 @@ void Board::make_move(Move move) {
 
     if (p == W_PAWN) {
         if (move.to / 8 == 7) board[move.to] = W_QUEEN;
-        if (move.to == en_passant_square) board[move.to - 8] = EMPTY;
+        if (move.to == en_passant_square) {
+            undo.captured_square = move.to - 8;
+            undo.captured_piece = board[move.to - 8];
+            board[move.to - 8] = EMPTY;
+        }
         if (move.to - move.from == 16) new_en_passant = move.from + 8;
     }
 
     if (p == B_PAWN) {
         if (move.to / 8 == 0) board[move.to] = B_QUEEN;
-        if (move.to == en_passant_square) board[move.to + 8] = EMPTY;
+        if (move.to == en_passant_square) {
+            undo.captured_square = move.to + 8;
+            undo.captured_piece = board[move.to + 8];
+            board[move.to + 8] = EMPTY;
+        }
         if (move.from - move.to == 16) new_en_passant = move.from - 8;
     }
 
     en_passant_square = new_en_passant;
     side_to_move = (side_to_move == WHITE) ? BLACK : WHITE;
+
+    return undo;
+}
+
+void Board::unmake_move(Move move, const UndoInfo &state){
+
+    // restore turn and state
+
+    side_to_move = (side_to_move == WHITE) ? BLACK : WHITE;
+    castling_rights = state.prev_castling_rights;
+    en_passant_square = state.prev_en_passant_square;
+
+    // move piece back
+    board[move.from] = state.moved_piece;
+
+    // clear destination square
+    board[move.to] = EMPTY;
+
+    // undo castling
+    if (state.moved_piece == W_KING) {
+        int distance = move.to - move.from;
+        if (distance == 2) { // white kingside
+            board[square_to_index("h1")] = W_ROOK;
+            board[square_to_index("f1")] = EMPTY;
+        }
+        else if (distance == -2) { // white queenside
+            board[square_to_index("a1")] = W_ROOK;
+            board[square_to_index("d1")] = EMPTY;
+        }
+    } else if (state.moved_piece == B_KING) {
+        int distance = move.to - move.from;
+        if (distance == 2) { // black kingside
+            board[square_to_index("h8")] = B_ROOK;
+            board[square_to_index("f8")] = EMPTY;
+        }
+        else if (distance == -2) { // black queenside
+            board[square_to_index("a8")] = B_ROOK;
+            board[square_to_index("d8")] = EMPTY;
+        }
+    }
+
+    // restore captured piece
+    if (state.captured_piece != EMPTY) {
+        board[state.captured_square] = state.captured_piece;
+    }
+
 }
 
 int Board::find_king(Color side) {
@@ -401,16 +467,15 @@ int Board::search(int depth, int alpha, int beta) {
         return 0;
     }
 
-    int best_score;
-    if (side_to_move == WHITE) best_score = -99999;
-    else best_score = 99999;
+    const bool maximizing = (side_to_move == WHITE);
+    int best_score = maximizing ? -99999 : 99999;
 
     for (auto move : moves) {
-        Board next_board = *this;
-        next_board.make_move(move);
-        int score = next_board.search(depth - 1, alpha, beta);
+        UndoInfo undo = make_move(move);
+        int score = search(depth - 1, alpha, beta);
+        unmake_move(move, undo);
 
-        if (side_to_move == WHITE) {
+        if (maximizing) {
             if (score > best_score) best_score = score;
             if (score > alpha) alpha = score;
             if (alpha >= beta) break;
@@ -431,16 +496,15 @@ Move Board::get_best_move(int depth) {
 
     std::vector<Move> moves = generate_moves();
 
-    int best_score;
-    if (side_to_move == WHITE) best_score = -99999;
-    else best_score = 99999;
+    const bool maximizing = (side_to_move == WHITE);
+    int best_score = maximizing ? -99999 : 99999;
 
     for (auto move : moves) {
-        Board next_board = *this;
-        next_board.make_move(move);
-        int score = next_board.search(depth - 1, -99999, 99999);
+        UndoInfo undo = make_move(move);
+        int score = search(depth - 1, -99999, 99999);
+        unmake_move(move, undo);
 
-        if (side_to_move == WHITE) {
+        if (maximizing) {
             if (score > best_score) {
                 best_score = score;
                 best_move = move;

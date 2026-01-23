@@ -23,7 +23,8 @@ struct Board {
     int evaluate();
     void print_board();
     bool is_white_turn();
-    void make_move(Move move);
+    UndoInfo make_move(Move move);
+    void unmake_move(Move move, const UndoInfo& state);
     int find_king(Color side);
     std::vector<Move> generate_pseudo_moves();
     std::vector<Move> generate_moves();
@@ -32,6 +33,15 @@ struct Board {
     Move parse_move(std::string input);
     bool is_square_attacked(int square, Color side_attacking);
     void load_fen(std::string fen);
+};
+
+
+struct UndoInfo {
+    Piece moved_piece; // piece from move.from before moving
+    Piece captured_piece; // EMPTY if none
+    int captured_square;  // move.to normally, or en passant pawn square
+    int prev_castling_rights;
+    int prev_en_passant_square;
 };
 
 #endif
