@@ -16,8 +16,8 @@ static std::vector<std::string> split_tokens(const std::string& line) {
 static void apply_moves(Board& board, const std::vector<std::string>& tokens, size_t start) {
     for (size_t i = start; i < tokens.size(); i++) {
         if (tokens[i].size() < 4) continue;
-        Move move = board.parse_move(tokens[i]);
-        board.make_move(move);
+        Move move = parse_move(tokens[i]);
+        make_move(board, move);
     }
 }
 
@@ -41,13 +41,13 @@ static void run_uci_loop(Board& board) {
 
             std::cout << "readyok" << std::endl;
         } else if (cmd == "ucinewgame") {
-            board.init_board();
+            init_board(board);
 
 
         } else if (cmd == "position") {
             
             if (tokens.size() >= 2 && tokens[1] == "startpos") {
-                board.init_board();
+                init_board(board);
                 size_t move_idx = 2;
                 if (move_idx < tokens.size() && tokens[move_idx] == "moves") {
                     apply_moves(board, tokens, move_idx + 1);
@@ -58,7 +58,7 @@ static void run_uci_loop(Board& board) {
                     if (i > 2) fen += " ";
                     fen += tokens[i];
                 }
-                board.load_fen(fen);
+                load_fen(board, fen);
                 size_t move_idx = 8;
                 if (move_idx < tokens.size() && tokens[move_idx] == "moves") {
                     apply_moves(board, tokens, move_idx + 1);
@@ -77,11 +77,11 @@ static void run_uci_loop(Board& board) {
                 }
             }
 
-            auto moves = board.generate_moves();
+            auto moves = generate_moves(board);
             if (moves.empty()) {
                 std::cout << "bestmove 0000" << std::endl;
             } else {
-                Move best = board.get_best_move(depth);
+                Move best = get_best_move(board, depth);
                 std::cout << "bestmove " << index_to_square(best.from)
                           << index_to_square(best.to) << std::endl;
             }
@@ -92,16 +92,16 @@ static void run_uci_loop(Board& board) {
 }
 
 static void run_cli_loop(Board& board) {
-    board.init_board();
+    init_board(board);
 
     while (true) {
-        board.print_board();
+        print_board(board);
 
-        auto moves = board.generate_moves();
+        auto moves = generate_moves(board);
         if (moves.empty()) {
-            int king_sq = board.find_king(board.side_to_move);
+            int king_sq = find_king(board, board.side_to_move);
             Color attacker = (board.side_to_move == WHITE) ? BLACK : WHITE;
-            if (board.is_square_attacked(king_sq, attacker)) {
+            if (is_square_attacked(board, king_sq, attacker)) {
                 std::cout << "Checkmate." << std::endl;
             } else {
                 std::cout << "Stalemate." << std::endl;
@@ -109,17 +109,17 @@ static void run_cli_loop(Board& board) {
             return;
         }
 
-        if (board.is_white_turn()) {
+        if (is_white_turn(board)) {
             std::cout << "Your move (e2e4, 'fen ...', 'startpos', or quit): ";
             std::string input;
             if (!std::getline(std::cin, input)) return;
             if (input == "quit") return;
             if (input == "startpos") {
-                board.init_board();
+                init_board(board);
                 continue;
             }
             if (input.rfind("fen ", 0) == 0) {
-                board.load_fen(input.substr(4));
+                load_fen(board, input.substr(4));
                 continue;
             }
             if (input.size() < 4) {
@@ -127,7 +127,7 @@ static void run_cli_loop(Board& board) {
                 continue;
             }
 
-            Move move = board.parse_move(input);
+            Move move = parse_move(input);
             bool legal = false;
             for (const auto& m : moves) {
                 if (m == move) {
@@ -140,31 +140,31 @@ static void run_cli_loop(Board& board) {
                 continue;
             }
 
-            board.make_move(move);
+            make_move(board, move);
         } else {
-            moves = board.generate_moves();
+            moves = generate_moves(board);
             if (moves.empty()) {
-                int king_sq = board.find_king(board.side_to_move);
+                int king_sq = find_king(board, board.side_to_move);
                 Color attacker = (board.side_to_move == WHITE) ? BLACK : WHITE;
-                if (board.is_square_attacked(king_sq, attacker)) {
+                if (is_square_attacked(board, king_sq, attacker)) {
                     std::cout << "Checkmate." << std::endl;
                 } else {
                     std::cout << "Stalemate." << std::endl;
                 }
                 return;
             }
-            Move best = board.get_best_move(3);
+            Move best = get_best_move(board, 3);
             std::cout << "Engine plays "
                       << index_to_square(best.from)
                       << index_to_square(best.to) << std::endl;
-            board.make_move(best);
+            make_move(board, best);
         }
     }
 }
 
 int main(int argc, char** argv) {
     Board board;
-    board.init_board();
+    init_board(board);
 
     if (argc > 1 && std::string(argv[1]) == "cli") {
         run_cli_loop(board);

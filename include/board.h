@@ -23,25 +23,25 @@ struct Board {
     Color side_to_move;
     int castling_rights;
     int en_passant_square = -1;
-
-    void init_board();
-    char get_piece_char(Piece p);
-    Piece get_piece_from_char(char c);
-    int get_piece_value(Piece p);
-    int evaluate();
-    void print_board();
-    bool is_white_turn();
-    UndoInfo make_move(Move move);
-    void unmake_move(Move move, const UndoInfo& state);
-    int find_king(Color side);
-    std::vector<Move> generate_pseudo_moves();
-    std::vector<Move> generate_moves();
-    int search(int depth, int alpha, int beta);
-    Move get_best_move(int depth);
-    Move parse_move(std::string input);
-    bool is_square_attacked(int square, Color side_attacking);
-    void load_fen(std::string fen);
 };
+
+void init_board(Board& board);
+char get_piece_char(Piece p);
+Piece get_piece_from_char(char c);
+int get_piece_value(Piece p);
+int evaluate(const Board& board);
+void print_board(const Board& board);
+bool is_white_turn(const Board& board);
+UndoInfo make_move(Board& board, Move move);
+void unmake_move(Board& board, Move move, const UndoInfo& state);
+int find_king(const Board& board, Color side);
+std::vector<Move> generate_pseudo_moves(const Board& board);
+std::vector<Move> generate_moves(const Board& board);
+int search(Board& board, int depth, int alpha, int beta);
+Move get_best_move(Board& board, int depth);
+Move parse_move(const std::string& input);
+bool is_square_attacked(const Board& board, int square, Color side_attacking);
+void load_fen(Board& board, const std::string& fen);
 
 
 
