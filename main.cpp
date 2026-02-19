@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -22,6 +23,9 @@ static void apply_moves(Board& board, const std::vector<std::string>& tokens, si
 }
 
 static void run_uci_loop(Board& board) {
+    constexpr int kDefaultDepth = 3;
+    constexpr int kMaxSearchDepth = 4;
+
     std::string line;
     while (std::getline(std::cin, line)) {
         if (line.empty()) continue;
@@ -35,6 +39,7 @@ static void run_uci_loop(Board& board) {
 
             std::cout << "id name simple_engine" << std::endl;
             std::cout << "id author el-tahir" << std::endl;
+            std::cout << "option name Hash type spin default 16 min 1 max 1024" << std::endl;
             std::cout << "uciok" << std::endl;
 
         } else if (cmd == "isready") {
@@ -45,7 +50,7 @@ static void run_uci_loop(Board& board) {
 
 
         } else if (cmd == "position") {
-            
+
             if (tokens.size() >= 2 && tokens[1] == "startpos") {
                 init_board(board);
                 size_t move_idx = 2;
@@ -64,18 +69,22 @@ static void run_uci_loop(Board& board) {
                     apply_moves(board, tokens, move_idx + 1);
                 }
             }
+        } else if (cmd == "setoption") {
+            // option values are currently ignored, but command support keeps UCI clients happy.
+            continue;
         } else if (cmd == "go") {
-            int depth = 3;
+            int depth = kDefaultDepth;
             for (size_t i = 1; i + 1 < tokens.size(); i++) {
                 if (tokens[i] == "depth") {
                     try {
                         depth = std::stoi(tokens[i + 1]);
                     } catch (...) {
-                        depth = 3;
+                        depth = kDefaultDepth;
                     }
                     break;
                 }
             }
+            depth = std::clamp(depth, 1, kMaxSearchDepth);
 
             auto moves = generate_moves(board);
             if (moves.empty()) {
